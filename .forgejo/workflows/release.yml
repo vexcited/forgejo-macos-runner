@@ -3,11 +3,15 @@ name: Release
 on:
   push:
     tags:
-      - "*"
+      - "*.*.*"
+
+env:
+  APP: build/Build/Products/Release/Forgejo Runner.app
 
 jobs:
   release:
-    runs-on: macos-tahoe
+    runs-on: macos-arm64
+
     defaults:
       run:
         shell: bash
@@ -28,99 +32,109 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
-      - name: import the signing certificate
-        env:
-          CERTIFICATE: ${{ secrets.DEVELOPER_ID_CERTIFICATE }}
-          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
-        run: |
-          set -euo pipefail
-          mkdir -p .signing
-          keychain="$PWD/.signing/signing.keychain-db"
-          password="$(openssl rand -hex 32)"
-
-          printf '%s' "$CERTIFICATE" | base64 --decode > .signing/certificate.p12
-          security create-keychain -p "$password" "$keychain"
-          security set-keychain-settings -lut 21600 "$keychain"
-          security unlock-keychain -p "$password" "$keychain"
-          security import .signing/certificate.p12 -k "$keychain" \
-            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: \
-            -s -k "$password" "$keychain" > /dev/null
-          rm .signing/certificate.p12
-
-          # codesign only looks for identities in keychains of the search list.
-          security list-keychains -d user -s "$keychain" \
-            $(security list-keychains -d user | tr -d '"')
-
-          identity="$(security find-identity -v -p codesigning "$keychain" \
-            | awk '/Developer ID Application/ { print $2; exit }')"
-          if [ -z "$identity" ]; then
-            echo "the certificate holds no developer id application identity." >&2
-            exit 1
-          fi
-          echo "SIGNING_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
-          echo "SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+      - uses: https://github.com/Apple-Actions/import-codesign-certs@v7
+        with:
+          p12-file-base64: ${{ secrets.DEVELOPER_ID_CERTIFICATE }}
+          p12-password: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
 
       - name: sign the app
         run: |
           set -euo pipefail
-          app="build/Build/Products/Release/Forgejo Runner.app"
           sign() {
-            codesign --force --timestamp --options runtime \
-              --keychain "$SIGNING_KEYCHAIN" --sign "$SIGNING_IDENTITY" "$@"
+            codesign --force --timestamp --options runtime --sign "Developer ID Application" "$@"
           }
 
           # nested code is signed before the bundle that contains it.
           for tool in forgejo-one-job forgejo-guest-provision; do
-            sign --identifier "com.vexcited.forgejo.runner.$tool" "$app/Contents/Resources/$tool"
+            sign --identifier "com.vexcited.forgejo.runner.$tool" "$APP/Contents/Resources/$tool"
           done
-          sign "$app"
-          codesign --verify --strict --verbose=2 "$app"
+          sparkle="$APP/Contents/Frameworks/Sparkle.framework"
+          sign "$sparkle/Versions/B/XPCServices/Installer.xpc"
+          sign --preserve-metadata=entitlements "$sparkle/Versions/B/XPCServices/Downloader.xpc"
+          sign "$sparkle/Versions/B/Autoupdate"
+          sign "$sparkle/Versions/B/Updater.app"
+          sign "$sparkle"
+          sign "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
 
-      - name: notarize the app
+      - name: notarize the app and its disk image
         env:
           API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
           API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
         run: |
           set -euo pipefail
-          app="build/Build/Products/Release/Forgejo Runner.app"
+          mkdir -p .signing .dmg dist
           printf '%s' "$API_KEY" | base64 --decode > .signing/api-key.p8
           credentials=(--key .signing/api-key.p8 --key-id "$API_KEY_ID" --issuer "$API_ISSUER_ID")
 
-          ditto -c -k --keepParent "$app" .signing/notarization.zip
-          xcrun notarytool submit .signing/notarization.zip "${credentials[@]}" \
-            --wait --timeout 1h --output-format json > .signing/notarization.json || true
-          cat .signing/notarization.json
-
-          id="$(jq -r '.id // empty' .signing/notarization.json)"
-          status="$(jq -r '.status // empty' .signing/notarization.json)"
-          if [ "$status" != Accepted ]; then
-            if [ -n "$id" ]; then
-              xcrun notarytool log "$id" "${credentials[@]}"
+          # submits a file, prints apple's log when it is rejected, then staples the ticket.
+          notarize() {
+            local result=".signing/notarization.json"
+            xcrun notarytool submit "$1" "${credentials[@]}" \
+              --wait --timeout 1h --output-format json > "$result" || true
+            cat "$result"
+            if [ "$(jq -r '.status // empty' "$result")" != Accepted ]; then
+              id="$(jq -r '.id // empty' "$result")"
+              [ -n "$id" ] && xcrun notarytool log "$id" "${credentials[@]}"
+              echo "notarization of $1 was not accepted." >&2
+              exit 1
             fi
-            echo "notarization ended with status ${status:-unknown}." >&2
-            exit 1
-          fi
+            xcrun stapler staple "$2"
+          }
 
-          xcrun stapler staple "$app"
-          spctl --assess --type execute --verbose=2 "$app"
+          ditto -c -k --keepParent "$APP" .signing/app.zip
+          notarize .signing/app.zip "$APP"
+          spctl --assess --type execute --verbose=2 "$APP"
 
-      - name: package the app
-        run: |
-          app="build/Build/Products/Release/Forgejo Runner.app"
-          test -d "$app"
-          mkdir -p dist
-          ditto -c -k --keepParent "$app" "dist/ForgejoRunner-${GITHUB_REF_NAME}.zip"
+          dmg="dist/ForgejoRunner-$FORGEJO_REF_NAME.dmg"
+          ditto "$APP" ".dmg/Forgejo Runner.app"
+          ln -s /Applications .dmg/Applications
+          diskutil image create from --volumeName "Forgejo Runner" --format ULFO .dmg "$dmg"
+          codesign --force --timestamp --sign "Developer ID Application" "$dmg"
+          notarize "$dmg" "$dmg"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"
+          echo "DMG=$dmg" >> "$FORGEJO_ENV"
 
       - uses: https://code.vexcited.com/forgejo/upload-release-assets@v1
         with:
-          files: dist/*.zip
+          files: dist/*.dmg
 
-      - name: remove the signing keychain
-        if: always()
+      - name: install the sparkle tools
+        env:
+          SPARKLE_VERSION: 2.10.0
+          SPARKLE_SHA256: c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c
         run: |
-          if [ -n "${SIGNING_KEYCHAIN:-}" ]; then
-            security delete-keychain "$SIGNING_KEYCHAIN" || true
-          fi
-          rm -rf .signing
+          set -euo pipefail
+          curl -sSfL -o .signing/sparkle.tar.xz \
+            "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
+          echo "$SPARKLE_SHA256  .signing/sparkle.tar.xz" | shasum -a 256 --check
+          mkdir -p .signing/sparkle
+          tar -xf .signing/sparkle.tar.xz -C .signing/sparkle
+
+      - name: publish the update feed
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          TOKEN: ${{ forgejo.token }}
+        run: |
+          set -euo pipefail
+          release="$FORGEJO_SERVER_URL/$FORGEJO_REPOSITORY/releases"
+          mkdir -p .appcast
+          cp "$DMG" .appcast/
+          printf '%s' "$SPARKLE_PRIVATE_KEY" | .signing/sparkle/bin/generate_appcast \
+            --ed-key-file - \
+            --download-url-prefix "$release/download/$FORGEJO_REF_NAME/" \
+            --full-release-notes-url "$release" \
+            --maximum-versions 1 \
+            .appcast
+
+          cd .appcast
+          git init -q -b appcast
+          git add appcast.xml
+          git -c user.name="Forgejo Actions" -c user.email="actions@noreply.${FORGEJO_SERVER_URL#https://}" \
+            commit -q -m "chore: publish $FORGEJO_REF_NAME"
+          git push --force -q "https://oauth2:$TOKEN@${FORGEJO_SERVER_URL#https://}/$FORGEJO_REPOSITORY.git" appcast
+
+      - name: clean up
+        if: always()
+        run: rm -rf .signing .dmg .appcast
