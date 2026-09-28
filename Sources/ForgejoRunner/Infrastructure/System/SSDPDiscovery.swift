@@ -7,6 +7,7 @@ nonisolated enum SSDPDiscovery {
     let socket = Darwin.socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
     guard socket >= 0 else { return nil }
     defer { close(socket) }
+    Socket.disableSIGPIPE(socket)
     var address = sockaddr_in()
     address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
     address.sin_family = sa_family_t(AF_INET)
