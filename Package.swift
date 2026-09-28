@@ -12,10 +12,13 @@ let package = Package(
     .executable(name: "forgejo-one-job", targets: ["ForgejoOneJob"]),
     .executable(name: "forgejo-guest-provision", targets: ["GuestProvision"]),
   ],
+  dependencies: [
+    .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.0")
+  ],
   targets: [
     .executableTarget(
       name: "ForgejoRunner",
-      dependencies: ["GuestKit"],
+      dependencies: ["GuestKit", .product(name: "Sparkle", package: "Sparkle")],
       swiftSettings: [
         .defaultIsolation(MainActor.self),
         .enableUpcomingFeature("NonisolatedNonsendingByDefault"),

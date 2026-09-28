@@ -6,6 +6,11 @@ options:
   deploymentTarget:
     macOS: "15.0"
 
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.0
+
 settings:
   base:
     ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
@@ -38,6 +43,7 @@ targets:
       - path: Resources/MacOSReleases.xcassets
     dependencies:
       - target: GuestKit
+      - package: Sparkle
       - target: ForgejoOneJob
         copy:
           destination: resources
@@ -55,6 +61,13 @@ targets:
         LSMinimumSystemVersion: "15.0"
         LSMultipleInstancesProhibited: true
         NSHighResolutionCapable: true
+        # updates come from a feed that each release signs, and are only installed
+        # when both the feed and the update carry a valid signature from this key.
+        SUFeedURL: https://code.vexcited.com/forgejo/macos-runner/raw/branch/appcast/appcast.xml
+        SUPublicEDKey: hVMk9sQ5ZtdqUw6fveQd7u5IIxdC8XdhjTs2u4pi1MI=
+        SURequireSignedFeed: true
+        SUVerifyUpdateBeforeExtraction: true
+        SUEnableAutomaticChecks: true
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

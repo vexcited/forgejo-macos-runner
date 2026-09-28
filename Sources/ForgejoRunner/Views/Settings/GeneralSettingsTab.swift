@@ -5,6 +5,7 @@ struct GeneralSettingsTab: View {
     Form {
       StartupSettingsSection()
       WindowSettingsSection()
+      UpdateSettingsSection()
     }
     .formStyle(.grouped)
   }

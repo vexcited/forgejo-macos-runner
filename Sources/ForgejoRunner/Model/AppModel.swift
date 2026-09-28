@@ -19,6 +19,7 @@ final class AppModel {
   let imageClones: ImageCloneController
   let goldenImages: GoldenImageController
   let sandboxSetup: SandboxSetup
+  let updater = AppUpdater()
 
   let commands: ProcessExecutor
   private var didStart = false

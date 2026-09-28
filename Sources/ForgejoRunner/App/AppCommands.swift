@@ -6,6 +6,11 @@ struct AppCommands: Commands {
   @Environment(\.openWindow) private var openWindow
 
   var body: some Commands {
+    CommandGroup(after: .appInfo) {
+      Button("Check for Updates...") { model.updater.checkForUpdates() }
+        .disabled(!model.updater.isAvailable)
+    }
+
     CommandMenu("Runner") {
       Button("Start Runner") {
         Task { await model.startController() }
