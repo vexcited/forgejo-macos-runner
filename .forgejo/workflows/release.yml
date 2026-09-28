@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  release:
+    runs-on: macos-tahoe
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - run: brew install xcodegen
+      - run: xcodegen generate
+
+      - name: build the release app
+        run: |
+          xcodebuild \
+            -project ForgejoRunner.xcodeproj \
+            -scheme ForgejoRunner \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: import the signing certificate
+        env:
+          CERTIFICATE: ${{ secrets.DEVELOPER_ID_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p .signing
+          keychain="$PWD/.signing/signing.keychain-db"
+          password="$(openssl rand -hex 32)"
+
+          printf '%s' "$CERTIFICATE" | base64 --decode > .signing/certificate.p12
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import .signing/certificate.p12 -k "$keychain" \
+            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$password" "$keychain" > /dev/null
+          rm .signing/certificate.p12
+
+          # codesign only looks for identities in keychains of the search list.
+          security list-keychains -d user -s "$keychain" \
+            $(security list-keychains -d user | tr -d '"')
+
+          identity="$(security find-identity -v -p codesigning "$keychain" \
+            | awk '/Developer ID Application/ { print $2; exit }')"
+          if [ -z "$identity" ]; then
+            echo "the certificate holds no developer id application identity." >&2
+            exit 1
+          fi
+          echo "SIGNING_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+          echo "SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+
+      - name: sign the app
+        run: |
+          set -euo pipefail
+          app="build/Build/Products/Release/Forgejo Runner.app"
+          sign() {
+            codesign --force --timestamp --options runtime \
+              --keychain "$SIGNING_KEYCHAIN" --sign "$SIGNING_IDENTITY" "$@"
+          }
+
+          # nested code is signed before the bundle that contains it.
+          for tool in forgejo-one-job forgejo-guest-provision; do
+            sign --identifier "com.vexcited.forgejo.runner.$tool" "$app/Contents/Resources/$tool"
+          done
+          sign "$app"
+          codesign --verify --strict --verbose=2 "$app"
+
+      - name: notarize the app
+        env:
+          API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          app="build/Build/Products/Release/Forgejo Runner.app"
+          printf '%s' "$API_KEY" | base64 --decode > .signing/api-key.p8
+          credentials=(--key .signing/api-key.p8 --key-id "$API_KEY_ID" --issuer "$API_ISSUER_ID")
+
+          ditto -c -k --keepParent "$app" .signing/notarization.zip
+          xcrun notarytool submit .signing/notarization.zip "${credentials[@]}" \
+            --wait --timeout 1h --output-format json > .signing/notarization.json || true
+          cat .signing/notarization.json
+
+          id="$(jq -r '.id // empty' .signing/notarization.json)"
+          status="$(jq -r '.status // empty' .signing/notarization.json)"
+          if [ "$status" != Accepted ]; then
+            if [ -n "$id" ]; then
+              xcrun notarytool log "$id" "${credentials[@]}"
+            fi
+            echo "notarization ended with status ${status:-unknown}." >&2
+            exit 1
+          fi
+
+          xcrun stapler staple "$app"
+          spctl --assess --type execute --verbose=2 "$app"
+
+      - name: package the app
+        run: |
+          app="build/Build/Products/Release/Forgejo Runner.app"
+          test -d "$app"
+          mkdir -p dist
+          ditto -c -k --keepParent "$app" "dist/ForgejoRunner-${GITHUB_REF_NAME}.zip"
+
+      - uses: https://code.vexcited.com/forgejo/upload-release-assets@v1
+        with:
+          files: dist/*.zip
+
+      - name: remove the signing keychain
+        if: always()
+        run: |
+          if [ -n "${SIGNING_KEYCHAIN:-}" ]; then
+            security delete-keychain "$SIGNING_KEYCHAIN" || true
+          fi
+          rm -rf .signing
