@@ -41,6 +41,9 @@ final class ProcessExecutor: CommandExecuting {
     var inputPipe: Pipe?
     if request.standardInput != nil {
       let pipe = Pipe()
+      // a command that exits before reading all its input fails the write instead of
+      // ending the app with SIGPIPE.
+      _ = fcntl(pipe.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
       process.standardInput = pipe
       inputPipe = pipe
     } else {
