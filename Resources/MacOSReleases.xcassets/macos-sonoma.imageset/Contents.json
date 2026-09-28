@@ -1,0 +1,6 @@
+{
+  "images" : [
+    { "filename" : "macos-sonoma.png", "idiom" : "universal" }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}
