@@ -13,7 +13,7 @@ Forgejo Runner is a native macOS app that runs Forgejo Actions jobs inside dispo
    brew install openai/tools/tart
    ```
 
-2. Download the latest `ForgejoRunner-<version>.zip` from the [releases](https://code.vexcited.com/forgejo/macos-runner/releases), unzip it, move `Forgejo Runner.app` to `/Applications` and open it.
+2. Download the latest `ForgejoRunner-<version>.dmg` from the [releases](https://code.vexcited.com/forgejo/macos-runner/releases), open it, drag Forgejo Runner into Applications and open it from there.
 
 3. The first launch walks you through the setup, one step at a time. Once done you can start the runner.
 
