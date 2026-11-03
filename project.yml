@@ -55,8 +55,8 @@ targets:
       properties:
         CFBundleDisplayName: Forgejo Runner
         CFBundleName: Forgejo Runner
-        CFBundleShortVersionString: "0.1.1"
-        CFBundleVersion: "2"
+        CFBundleShortVersionString: "0.2.0"
+        CFBundleVersion: "3"
         LSApplicationCategoryType: public.app-category.developer-tools
         LSMinimumSystemVersion: "15.0"
         LSMultipleInstancesProhibited: true
