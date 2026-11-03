@@ -26,7 +26,9 @@ enum SSHDHardeningStep {
       throw ProvisionFailure(message: "could not read the effective sshd configuration.", code: 1)
     }
     let effectiveLines = Set(
-      effective.output.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) })
+      effective.output.split(separator: "\n").map {
+        $0.trimmingCharacters(in: .whitespaces).lowercased()
+      })
     for setting in SSHHardening.requiredEffectiveSettings where !effectiveLines.contains(setting) {
       throw ProvisionFailure(message: "sshd did not apply \(setting).", code: 1)
     }
