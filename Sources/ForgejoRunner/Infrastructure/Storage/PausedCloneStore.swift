@@ -40,6 +40,7 @@ nonisolated struct PausedCloneStore: Sendable {
     let clone = PausedClone(
       source: request.source,
       name: request.name,
+      replacing: request.replacing,
       temporaryDirectoryName: located?.lastPathComponent
         ?? request.remoteName?.temporaryDirectoryName ?? "",
       hasPartialDownload: located != nil,

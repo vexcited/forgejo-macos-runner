@@ -5,6 +5,7 @@ struct ImageList: View {
   @Binding var selection: String?
   let provisioningDisabled: Bool
   let onDelete: (TartImage) -> Void
+  let onUpdate: (ImageUpdateTarget) -> Void
   @State private var collapsed: Set<String> = []
 
   var body: some View {
@@ -72,6 +73,8 @@ struct ImageList: View {
       isProvisioned: model.preferences.isProvisioned(image.name),
       isProvisioning: model.isProvisioningImage
         && model.preferences.selectedImage == image.name,
+      version: model.preferences.origin(of: image.name).map { $0.version ?? $0.tag },
+      update: model.imageUpdates.statuses[image.name],
       writtenBytes: model.writtenBytes[image.name]
     ) {
       actions(for: image)
@@ -94,6 +97,13 @@ struct ImageList: View {
         Task { await model.useAsGoldenImage(image.name) }
       }
       .disabled(isSession(image))
+    }
+    if let repository = model.imageUpdates.repositories[image.name] {
+      Button("Update...", systemImage: "arrow.down.circle") {
+        onUpdate(ImageUpdateTarget(image: image, repository: repository))
+      }
+      .disabled(
+        provisioningDisabled || model.pausedClone != nil || model.coordinator.isRunning)
     }
     Divider()
     Button("Delete", systemImage: "trash", role: .destructive) {

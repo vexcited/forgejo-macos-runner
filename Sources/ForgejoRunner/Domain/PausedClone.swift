@@ -3,6 +3,7 @@ import Foundation
 nonisolated struct PausedClone: Codable, Equatable, Sendable {
   let source: String
   let name: String
+  let replacing: String?
   let temporaryDirectoryName: String
   var hasPartialDownload: Bool
   let fraction: Double?
@@ -10,6 +11,6 @@ nonisolated struct PausedClone: Codable, Equatable, Sendable {
   let pausedAt: Date
 
   var request: TartCloneRequest {
-    TartCloneRequest(source: source, name: name)
+    TartCloneRequest(source: source, name: name, replacing: replacing)
   }
 }

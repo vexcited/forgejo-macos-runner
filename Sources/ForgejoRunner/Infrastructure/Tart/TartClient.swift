@@ -117,6 +117,12 @@ final class TartClient {
     _ = try await commands.checked(factory.delete(name: name), timeout: .seconds(60))
   }
 
+  func rename(name: String, to newName: String) async throws {
+    try TartInputValidation.validateName(name)
+    try TartInputValidation.validateName(newName)
+    _ = try await commands.checked(factory.rename(name: name, to: newName), timeout: .seconds(60))
+  }
+
   func execute(
     name: String,
     arguments: [String],

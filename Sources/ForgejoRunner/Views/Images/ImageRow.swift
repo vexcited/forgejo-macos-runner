@@ -5,6 +5,8 @@ struct ImageRow<Actions: View>: View {
   let isGolden: Bool
   let isProvisioned: Bool
   let isProvisioning: Bool
+  var version: String?
+  var update: ImageUpdateStatus?
   // what a session vm wrote on top of the golden image it shares its disk with.
   var writtenBytes: Int64?
   @ViewBuilder var actions: Actions
@@ -36,10 +38,20 @@ struct ImageRow<Actions: View>: View {
           if isDisposable {
             Chip(text: "Disposable")
           }
+          if case .available(let latest, let uploadedAt) = update {
+            Chip(text: latest.map { "\($0) available" } ?? "Update available", tint: .blue)
+              .help(
+                uploadedAt.map {
+                  "Published \($0.formatted(date: .abbreviated, time: .omitted))."
+                } ?? "A newer version is published.")
+          }
         }
         HStack(spacing: 14) {
           Label("\(hostSize) on this Mac", systemImage: "internaldrive")
             .help(hostSizeHelp)
+          if let version {
+            Label(version, systemImage: "tag")
+          }
           if writtenBytes == nil {
             Label("\(image.diskSizeGB) GB virtual disk", systemImage: "square.stack.3d.up")
               .help("The size of the disk inside the VM, not the space it takes on this Mac.")

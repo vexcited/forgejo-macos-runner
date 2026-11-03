@@ -24,6 +24,13 @@ final class AppPreferences {
     didSet { defaults.set(provisionedImages, forKey: Key.provisionedImageRevisions) }
   }
 
+  // where each downloaded image came from, so updates can be offered.
+  private(set) var imageOrigins: [String: ImageOrigin] {
+    didSet {
+      defaults.set(try? JSONEncoder().encode(imageOrigins), forKey: Key.imageOrigins)
+    }
+  }
+
   var tartExecutablePath: String {
     didSet { defaults.set(tartExecutablePath, forKey: Key.tartExecutablePath) }
   }
@@ -81,6 +88,10 @@ final class AppPreferences {
     provisionedImages =
       defaults.dictionary(forKey: Key.provisionedImageRevisions) as? [String: Int]
       ?? Dictionary(uniqueKeysWithValues: (legacyProvisionedImages ?? []).map { ($0, 1) })
+    imageOrigins =
+      defaults.data(forKey: Key.imageOrigins).flatMap {
+        try? JSONDecoder().decode([String: ImageOrigin].self, from: $0)
+      } ?? [:]
     tartExecutablePath = defaults.string(forKey: Key.tartExecutablePath) ?? "/opt/homebrew/bin/tart"
     runnerVersion = defaults.string(forKey: Key.runnerVersion) ?? "13.2.0"
     xcodeApplicationPath = defaults.string(forKey: Key.xcodeApplicationPath) ?? ""
@@ -115,6 +126,14 @@ final class AppPreferences {
 
   func clearProvisioned(_ image: String) {
     provisionedImages[image] = nil
+  }
+
+  func origin(of image: String) -> ImageOrigin? {
+    imageOrigins[image]
+  }
+
+  func setOrigin(_ origin: ImageOrigin?, of image: String) {
+    imageOrigins[image] = origin
   }
 
   // copies preferences saved under the bundle identifier used before the app was renamed.

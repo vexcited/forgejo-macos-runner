@@ -26,6 +26,7 @@ nonisolated struct TartCommandFactory: Sendable {
     ("stop", ["--timeout"]),
     ("prune", ["--entries", "--space-budget"]),
     ("delete", ["<name>"]),
+    ("rename", ["<name>", "<new-name>"]),
     ("exec", ["-i"]),
   ]
 
@@ -86,6 +87,10 @@ nonisolated struct TartCommandFactory: Sendable {
 
   func delete(name: String) -> CommandRequest {
     request(["delete", name])
+  }
+
+  func rename(name: String, to newName: String) -> CommandRequest {
+    request(["rename", name, newName])
   }
 
   func pruneCaches() -> CommandRequest {

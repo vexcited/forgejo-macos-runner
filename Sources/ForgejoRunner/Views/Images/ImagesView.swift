@@ -5,6 +5,7 @@ struct ImagesView: View {
   @State private var clonePresentation: ClonePresentation?
   @State private var pendingDeletion: TartImage?
   @State private var cloneConfirmation: CloneConfirmation?
+  @State private var updateTarget: ImageUpdateTarget?
   // visual row selection, kept separate from the golden designation so selecting a
   // row never triggers provisioning.
   @State private var selection: String?
@@ -22,7 +23,8 @@ struct ImagesView: View {
         ImageList(
           selection: $selection,
           provisioningDisabled: provisioningDisabled,
-          onDelete: { pendingDeletion = $0 }
+          onDelete: { pendingDeletion = $0 },
+          onUpdate: { updateTarget = $0 }
         )
       }
 
@@ -56,6 +58,11 @@ struct ImagesView: View {
       CloneImageView()
         .environment(model)
     }
+    .sheet(item: $updateTarget) { target in
+      UpdateImageView(target: target)
+        .environment(model)
+    }
+    .task(id: updateCheckKey) { await model.checkForImageUpdates() }
     .sheet(item: $model.pendingGoldenPrompt) { prompt in
       GoldenImagePromptView(prompt: prompt)
         .environment(model)
@@ -80,6 +87,13 @@ struct ImagesView: View {
     let count = images.count
     let size = ByteCountFormatter.string(fromByteCount: total + written, countStyle: .file)
     return "\(count) image\(count == 1 ? "" : "s"), \(size) on disk"
+  }
+
+  // session vms come and go with every job, only the images and their origins matter.
+  private var updateCheckKey: [String] {
+    model.images.filter { !$0.name.hasPrefix(VMName.controllerPrefix) }.map {
+      "\($0.name)@\(model.preferences.origin(of: $0.name)?.digest ?? "")"
+    }
   }
 
   private var canStartClone: Bool {

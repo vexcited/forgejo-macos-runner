@@ -35,8 +35,16 @@ extension AppModel {
     await imageClones.cloneImage(source: source, name: name)
   }
 
+  func updateImage(_ name: String, to source: String, keepingCurrent: Bool) async {
+    await imageClones.updateImage(name, to: source, keepingCurrent: keepingCurrent)
+  }
+
   func measureWrittenBytes() {
     imageLibrary.measureWrittenBytes()
+  }
+
+  func checkForImageUpdates() async {
+    await imageUpdates.check(images)
   }
 
   func resumePausedClone() async {

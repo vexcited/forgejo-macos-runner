@@ -18,6 +18,7 @@ final class AppModel {
   let pausedClones: PausedCloneController
   let imageClones: ImageCloneController
   let goldenImages: GoldenImageController
+  let imageUpdates: ImageUpdateChecker
   let sandboxSetup: SandboxSetup
   let updater = AppUpdater()
 
@@ -105,6 +106,10 @@ final class AppModel {
       paths: paths, preferences: preferences, activity: activity,
       coordinator: coordinator, provisioner: provisioner)
     sandboxSetup = SandboxSetup(tart: tart, tartConfigurator: tartConfigurator, activity: activity)
+    imageUpdates = ImageUpdateChecker(preferences: preferences, tartHome: paths.tartHome)
+    imageClones.provisionGoldenImage = { [goldenImages] name in
+      await goldenImages.useAsGoldenImage(name)
+    }
   }
 
   func start() async {

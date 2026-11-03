@@ -6,6 +6,7 @@ extension AppPreferences {
     static let selectedImage = "selectedImage"
     static let provisionedImages = "provisionedImages"
     static let provisionedImageRevisions = "provisionedImageRevisions"
+    static let imageOrigins = "imageOrigins"
     static let tartExecutablePath = "tartExecutablePath"
     static let runnerVersion = "runnerVersion"
     static let xcodeApplicationPath = "xcodeApplicationPath"

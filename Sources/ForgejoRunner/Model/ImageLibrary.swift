@@ -88,6 +88,7 @@ final class ImageLibrary {
       }
       try await tart.delete(name: image.name)
       preferences.clearProvisioned(image.name)
+      preferences.setOrigin(nil, of: image.name)
       if preferences.selectedImage == image.name {
         preferences.selectedImage = ""
       }
