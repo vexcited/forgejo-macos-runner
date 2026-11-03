@@ -17,7 +17,9 @@ final class DownloadSpaceReservation {
 
   // returns false when the size is unknown, then the download runs without a reservation.
   func begin(source: String) async throws -> Bool {
-    guard let size = try? await RegistryImageSize.unpackedBytes(source: source) else {
+    guard let reference = RegistryReference(source: source),
+      let size = try? await RegistryClient.manifest(of: reference)?.unpackedBytes
+    else {
       return false
     }
     required = size + Self.margin
