@@ -1,0 +1,20 @@
+<?xml version="1.0" standalone="yes"?><!-- sparkle-sign-warning:
+IMPORTANT: This file was signed by Sparkle. Any modifications to this file requires re-signing this file with generate_appcast or sign_update! The signed signature will be embedded at the end of this file.
+--><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Forgejo Runner</title>
+        <item>
+            <title>0.2.1</title>
+            <pubDate>Tue, 03 Nov 2026 21:14:47 +0000</pubDate>
+            <sparkle:fullReleaseNotesLink>https://code.vexcited.com/forgejo/macos-runner/releases</sparkle:fullReleaseNotesLink>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://code.vexcited.com/forgejo/macos-runner/releases/download/0.2.1/ForgejoRunner-0.2.1.dmg" length="5329163" type="application/octet-stream" sparkle:edSignature="4rYgtZ9JWEexpz0piZucOAL4uJcaZsfCUunOQot4tzg9diqkIbwxNZPSRXKZVaR8iX6JKP9ILC9AIDHzcbfSDQ=="></enclosure>
+        </item>
+    </channel>
+</rss><!-- sparkle-signatures:
+edSignature: 2u7MGN3PSXAOANrcULMCdi1uMDYBJUBQaAdMX46u8325Hw0hGe7P7lWtdqsZPqH9gNfIBc9p9wiYZvq9oY4oDw==
+length: 1269
+-->
