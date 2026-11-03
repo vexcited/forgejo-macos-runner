@@ -19,9 +19,11 @@ struct ImagesView: View {
         }
         .frame(maxHeight: .infinity)
       } else {
-        ImageList(selection: $selection, provisioningDisabled: provisioningDisabled) {
-          pendingDeletion = $0
-        }
+        ImageList(
+          selection: $selection,
+          provisioningDisabled: provisioningDisabled,
+          onDelete: { pendingDeletion = $0 }
+        )
       }
 
       CloneStatusSection { cloneConfirmation = $0 }
@@ -71,9 +73,13 @@ struct ImagesView: View {
   }
 
   private var subtitle: String {
-    let count = model.images.count
-    let total = model.images.reduce(0) { $0 + $1.allocatedSizeGB }
-    return "\(count) image\(count == 1 ? "" : "s"), \(total) GB on disk"
+    // session vms only count what they wrote, the rest of their disk is shared.
+    let images = model.images.filter { model.writtenBytes[$0.name] == nil }
+    let written = model.writtenBytes.values.reduce(0, +)
+    let total = images.reduce(Int64(0)) { $0 + Int64($1.allocatedSizeGB) * 1_000_000_000 }
+    let count = images.count
+    let size = ByteCountFormatter.string(fromByteCount: total + written, countStyle: .file)
+    return "\(count) image\(count == 1 ? "" : "s"), \(size) on disk"
   }
 
   private var canStartClone: Bool {

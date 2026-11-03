@@ -111,7 +111,7 @@ nonisolated struct TartCommandFactory: Sendable {
     vmDirectory(for: name).appending(path: "control.sock", directoryHint: .notDirectory)
   }
 
-  private func vmDirectory(for name: String) -> URL {
+  func vmDirectory(for name: String) -> URL {
     tartHome.appending(path: "vms", directoryHint: .isDirectory)
       .appending(path: name, directoryHint: .isDirectory)
   }

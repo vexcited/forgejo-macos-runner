@@ -2,6 +2,7 @@ import Foundation
 
 extension AppModel {
   var images: [TartImage] { imageLibrary.images }
+  var writtenBytes: [String: Int64] { imageLibrary.writtenBytes }
   var isRefreshingImages: Bool { imageLibrary.isRefreshingImages }
   var isCloningImage: Bool { imageLibrary.isCloningImage }
   var isProvisioningImage: Bool { imageLibrary.isProvisioningImage }
@@ -32,6 +33,10 @@ extension AppModel {
 
   func cloneImage(source: String, name: String) async {
     await imageClones.cloneImage(source: source, name: name)
+  }
+
+  func measureWrittenBytes() {
+    imageLibrary.measureWrittenBytes()
   }
 
   func resumePausedClone() async {

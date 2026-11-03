@@ -5,6 +5,8 @@ struct ImageRow<Actions: View>: View {
   let isGolden: Bool
   let isProvisioned: Bool
   let isProvisioning: Bool
+  // what a session vm wrote on top of the golden image it shares its disk with.
+  var writtenBytes: Int64?
   @ViewBuilder var actions: Actions
 
   private var isDisposable: Bool {
@@ -36,8 +38,12 @@ struct ImageRow<Actions: View>: View {
           }
         }
         HStack(spacing: 14) {
-          Label("\(image.allocatedSizeGB) GB used", systemImage: "internaldrive")
-          Label("\(image.diskSizeGB) GB disk", systemImage: "square.stack.3d.up")
+          Label("\(hostSize) on this Mac", systemImage: "internaldrive")
+            .help(hostSizeHelp)
+          if writtenBytes == nil {
+            Label("\(image.diskSizeGB) GB virtual disk", systemImage: "square.stack.3d.up")
+              .help("The size of the disk inside the VM, not the space it takes on this Mac.")
+          }
           Label(
             image.source.lowercased() == "oci" ? "Registry" : image.source.capitalized,
             systemImage: "shippingbox")
@@ -64,6 +70,20 @@ struct ImageRow<Actions: View>: View {
       .help("Image actions")
     }
     .padding(.vertical, 6)
+  }
+
+  // a session vm is an apfs clone, it only takes what it wrote since it was cloned.
+  private var hostSize: String {
+    if let writtenBytes {
+      return ByteCountFormatter.string(fromByteCount: writtenBytes, countStyle: .file)
+    }
+    return "\(image.allocatedSizeGB) GB"
+  }
+
+  private var hostSizeHelp: String {
+    writtenBytes == nil
+      ? "The space this image takes on this Mac."
+      : "What this VM wrote since it was cloned. The rest of its disk is shared with the golden image, so it takes no extra space."
   }
 
   private var symbol: String {

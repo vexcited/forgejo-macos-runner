@@ -12,6 +12,8 @@ final class ImageLibrary {
   private let coordinator: RunnerCoordinator
 
   private(set) var images: [TartImage] = []
+  // what each session vm wrote on top of the golden image it was cloned from.
+  private(set) var writtenBytes: [String: Int64] = [:]
   private(set) var isRefreshingImages = false
   var isCloningImage = false
   var isProvisioningImage = false
@@ -44,11 +46,22 @@ final class ImageLibrary {
     defer { isRefreshingImages = false }
     do {
       images = try await tart.images()
+      measureWrittenBytes()
       errorMessage = nil
     } catch {
       images = []
       errorMessage = error.localizedDescription
     }
+  }
+
+  // cheap enough to repeat while a job runs, it only reads the disk files' metadata.
+  func measureWrittenBytes() {
+    writtenBytes = Dictionary(
+      uniqueKeysWithValues: images.filter { $0.name.hasPrefix(VMName.controllerPrefix) }
+        .compactMap { image in
+          let disk = tart.factory.vmDirectory(for: image.name).appending(path: "disk.img")
+          return ClonedFileSize.privateBytes(of: disk).map { (image.name, $0) }
+        })
   }
 
   func delete(named name: String) async {
